@@ -1,0 +1,21 @@
+{
+    "prepare_queue": {
+        "installed": [],
+        "uninstalled": []
+    },
+    "config_munge": {
+        "files": {}
+    },
+    "installed_plugins": {
+        "cordova-plugin-whitelist": {
+            "PACKAGE_NAME": "com.bluetooth.kurbi"
+        },
+        "cordova-plugin-bluetooth-serial": {
+            "PACKAGE_NAME": "com.bluetooth.kurbi"
+        },
+        "cordova-plugin-console": {
+            "PACKAGE_NAME": "com.bluetooth.kurbi"
+        }
+    },
+    "dependent_plugins": {}
+}
