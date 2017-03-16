@@ -1,0 +1,15 @@
+bluetoothSerial.list(function(list){console.log(list);},function(err){console.log(err);})
+
+bluetoothSerial.connect("00:06:66:0A:32:9D", function(msg){console.log(msg);},function(err){console.log(err);})
+
+bluetoothSerial.isConnected(function(msg){console.log(msg);},function(err){console.log(err);})
+
+bluetoothSerial.available(success,fail)
+
+bluetoothSerial.connectInsecure("00:06:66:0A:32:9D", function(msg){console.log(msg);},function(err){console.log(err);})
+
+var success = function(msg){console.log(msg);}
+var fail = function(err){console.log(err);}
+
+bluetoothSerial.write('>i69', success, fail)
+bluetoothSerial.read(succes,fail)

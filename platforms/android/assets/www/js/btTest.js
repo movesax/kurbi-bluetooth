@@ -1,9 +1,9 @@
 
 (function(scope){
     
-    if(!scope.BT_TEST) scope.BT_TEST = this;
+    if(!scope.BT_TEST) scope.BT_TEST = {};
 
-    this.begin = function(){
+    scope.BT_TEST.begin = function(){
         scanForDevices();
     }
 
@@ -13,10 +13,10 @@
         bluetoothSerial.list(
             function(list){
                 log('success')
+                log('devices found:');
                 list.forEach(function(x){
                     log(x.name + ", " + x.address);
                 });
-                log(list);
             }
             ,function(){
                 log('error');

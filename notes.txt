@@ -1,0 +1,182 @@
+python DAQ driver:
+#constructor: 
+m = emant.Emant300()
+    def __init__(self):
+        self._HwId = ""
+        self._CommOpen = False
+        self._DIO_Config = 8
+        self._DIO = 255
+        self._Polarity = self.Unipolar
+        self._Gain = 0
+        self._VRef = self.V2_5
+        self._ODAC = 0
+        self._ADCON0 = 0x30
+        self._ADCON1 = 0x41
+        self._Decimation = 0x07F1
+        self._ACLK = 0x10
+        self._sock = None
+        self._MSINT = 100
+
+        self._EventOrTimed = self.EOT_Timed
+        self._PWMOrCnt = self.POC_PWM
+        
+        self._Counter = 0
+
+#open socket
+m.Open("00:06:66:00:A1:D8")
+   def Open(self, Comm_Port, reset=True, dev='380'):
+        self._CommPort = Comm_Port
+        self._device = dev 
+        if (self._device=='380'):
+            service_matches = bluetooth.find_service( uuid = uuid, address = Comm_Port )
+            if len(service_matches) == 0:
+                    self._CommOpen = False
+                    return self._CommOpen
+
+            first_match = service_matches[0]
+            port = first_match["port"]
+            name = first_match["name"]
+            host = first_match["host"]
+            # Create the client socket
+#connects to the passed com port
+            self._sock=bluetooth.BluetoothSocket( bluetooth.RFCOMM )
+            self._sock.connect((host, port))
+#what is this port thing? the mac address??  
+#then what is the host? let's assume we are already connecting properly          
+            self._CommOpen = True
+
+        if (self._device=='300'):
+            self._serial = serial.Serial(Comm_Port, 115200, timeout=5)
+            self._CommOpen = self._serial.isOpen
+
+        c = '>' + self._checksum('i')
+
+# def _checksum(self, str_input):
+        # _cs = 0
+        # for i in xrange(len(str_input)):
+        #    ch=str_input[i]
+        #    _cs = (_cs + ord(ch)) % 256
+        # res = str_input + ("%02x" % _cs).upper()
+        # return res
+        #if str_input = 'i', res = 'i69'
+
+        r = self._TransactCommand(c)
+
+    # def _TransactCommand(self, sendstring):
+    #     if (self._device=='380'):
+    #         self._sock.send(sendstring)
+    #         return self._bt_receive_data()
+    #send : '>i69'
+
+    # def _bt_receive_data(self):
+    #     buffer = ""
+    #     while 1:
+    #          data = self._sock.recv(1)
+    #          buffer = buffer + data
+    #          if data == '\r':
+    #              return buffer
+    #I think read the buffer.
+
+
+    #     if (self._device=='300'):
+    #         self._serial.write(sendstring)
+    #         return self._serial_receive_data()
+
+        (st, id) = self._checksum_OK(r)
+        self._HwId = id
+        if (reset):
+            self.Reset()
+
+        #        def Reset(self):
+        # if (self._writecmd('R')):
+
+        #    def _writecmd(self, str_input):
+        # c = '>' + self._checksum(str_input)  # '>R52'
+        # r = self._TransactCommand(c)
+        # if r[0:1] == 'A':
+        #     return True
+        # else:
+        #     return False
+
+        #     time.sleep(0.5)
+        #     return True
+        # else:
+        #     return False
+
+        return self._CommOpen
+#prints some sort of id returned from checksum_OK(r)
+#r is the result of a checksum... somehow determines if there is an error
+print m.HwId() 
+
+
+m.ConfigAnalog(0.1,emant.Emant300.Bipolar,10) #(0.1, 0, 10)
+ def ConfigAnalog(self, InputLimit, Polarity, SampleFreq):
+ 		#InputLimit = .1
+ 		#Polarity = 0 
+ 		#SampleFreq = 10 hz?
+        if (self._VRef == self.V2_5): #if 1 == 1
+            reflimit = 2.5
+        else:
+            reflimit = 1.25
+
+        #reflimit = 2.5
+        if (InputLimit > reflimit):
+            InputLimit = reflimit
+        #InputLimit = .1 still
+        Gain = int(math.log(reflimit / InputLimit)/math.log(2))
+        #Gain = 4
+        self._ADCON0 = self._ADCON0 & 0xF8
+        #ADCON01 = 0x30
+        # 0x30 & 0xF8 = 48 (0x30)
+        # 0011 0000 & 1111 1000 = 0011 0000 (0x30, 48)
+        self._ADCON0 = int(Gain | self._ADCON0)
+        # 0000 0100 | 0011 0000 = 00110100 // 110100 // 52
+        self._Gain = Gain
+
+        self._ADCON1 = self._ADCON1 & 0xBF
+        # 0x41 & 0xBF = 1
+        self._ADCON1 = int(Polarity << 6) | self._ADCON1
+        #Polarity << 6 = 0
+        # 0 | 1 = 1
+        self._Polarity = Polarity
+
+        temp = (170/SampleFreq) - 1
+        #temp = 16
+        if (temp < 1):
+            temp = 1
+
+        self._ACLK = int(temp)
+        #._ACLK = 16
+
+        # 345606.25 = 22118800 / 64
+        self._Decimation = int(345606.25/((self._ACLK + 1) * SampleFreq))
+        #._Decimation = 2032
+        # correct for Decimation bug
+
+        if (self._Decimation > 2047):
+            self._ACLK = self._ACLK + 1
+            self._Decimation = int(345606.25 / ((self._ACLK + 1) * SampleFreq))
+
+        # end of add
+        return self.ConfigAnalogAdvance()
+        
+
+    # Advance Setting for Analog Input
+    def ConfigAnalogAdvance(self):
+    	#this is making a string
+        c = ("03F" + ("%02x" % self._ODAC).upper()+ \ #03F00
+            ("%02x" % self._ADCON0).upper()+ ("%02x" % self._ADCON1).upper()+ \ #3401
+            ("%04x" % self._Decimation).upper()+ ("%02x" % self._ACLK).upper()) #07F010
+        #'03F00340107F010'
+        actSampFreq = 22118800/((self._ACLK + 1) * self._Decimation * 64)
+        # 10
+        return (self._writecmd(c),actSampFreq)
+
+        #c = '03F00340107F010'
+      	#    def _writecmd(self, str_input):
+        # c = '>' + self._checksum(str_input)  # '>R52'
+        # r = self._TransactCommand(c)
+        # if r[0:1] == 'A':
+        #     return True
+        # else:
+        #     return False
