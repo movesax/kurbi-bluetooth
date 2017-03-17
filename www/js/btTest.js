@@ -41,6 +41,14 @@
     
     var _Counter = 0
 
+    scope.bt = {};
+    
+    bt.scanForDevices = scanForDevices;   
+    bt.checksum = checksum;
+    bt.checksumOK = checksumOK;
+    bt.writeCommand = writeCommand;
+    bt.configAnalog = configAnalog;
+    bt.configAnalogAdvance = configAnalogAdvance; 
 
     scope.BT_TEST.begin = function(){
         // scanForDevices();
@@ -48,8 +56,23 @@
         console.log(checksumOK('Abacon snitzel'));
         console.log(configAnalog(0.1,0,10));
         //console.log(configAnalogAdvance());
+        // initializeDevice();
     }
 
+
+    function initializeDevice(){
+        bluetoothSerial.connect("00:06:66:0A:32:9D", 
+            function(msg){
+                console.log('connected ', msg);
+                writeCommand('i', function(){
+                    console.log('success');
+                }, function(){
+                    console.log('fail');
+                }
+                );
+            },
+            function(err){console.log('error ', err);})
+    }
 
 
     function scanForDevices(){
@@ -103,8 +126,11 @@
         //R = reset
         //i = initialize
         var command = '>' + checksum(cmdString);
+        console.log('writing', command);
         bluetoothSerial.write(command,function(){
+            console.log('reading buffer');
             bluetoothSerial.read(function(buffer){
+                console.log('buffer', buffer)
                 if(buffer[0] == 'A') success();
                 else fail();
             }, genFail);

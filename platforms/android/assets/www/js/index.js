@@ -14,7 +14,8 @@
             var loadPage = function(type){
                 log('ready');
                 scope.device.type = type;
-                if(type == 'cordova') scope.BT_TEST.begin();
+                // if(type == 'cordova') 
+                scope.BT_TEST.begin();
                 scope.CHART_TEST.begin();
             };
 
