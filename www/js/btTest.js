@@ -49,6 +49,7 @@
     bt.writeCommand = writeCommand;
     bt.configAnalog = configAnalog;
     bt.configAnalogAdvance = configAnalogAdvance; 
+    bt.read = readAnalog;
 
     scope.BT_TEST.begin = function(){
         // scanForDevices();
@@ -56,7 +57,7 @@
         console.log(checksumOK('Abacon snitzel'));
         console.log(configAnalog(0.1,0,10));
         //console.log(configAnalogAdvance());
-        // initializeDevice();
+        //initializeDevice();
     }
 
 
@@ -121,6 +122,7 @@
     }
 
 
+
     function writeCommand(cmdString, success, fail){
         //cmdString
         //R = reset
@@ -130,9 +132,12 @@
         bluetoothSerial.write(command,function(){
             console.log('reading buffer');
             bluetoothSerial.read(function(buffer){
-                console.log('buffer', buffer)
-                if(buffer[0] == 'A') success();
-                else fail();
+                console.log('buffer ' + buffer)
+                if(buffer[0] == 'A') {
+                    console.log('success')
+                    success('success');
+                }
+                else fail('failz');
             }, genFail);
         }, genFail);
         
@@ -188,6 +193,34 @@
         // actSampFreq = 22118800/((self._ACLK + 1) * self._Decimation * 64)
         // return (self._writecmd(c),actSampFreq)
         return c;
+    }
+
+    function readAnalog(pinA,pinB){
+        var ai = (pinA * 16 + pinB) % 256;
+        var hexCode = ("00" + ai.toString(16)).substr(-2).toUpperCase()
+        c = '>' + checksum('t' + hexCode);
+        bluetoothSerial.write(c,function(){
+            console.log('reading buffer');
+            bluetoothSerial.read(function(buffer){
+                
+                var data = checksumOK(buffer);
+                if(data.success){
+                     var rawdata = parseInt(buffer, 16);
+                    // if (_Polarity == Bipolar)
+                    //     if (rawdata > 0x7FFFFF)
+                    //         rawdata = rawdata - 0x1000000;
+                    // rawdata = rawdata * 2;
+                // g = 1 << self._Gain
+                // rawdata = rawdata / g
+                // volt = (rawdata * 1.25 * (1 + self._VRef))/0xFFFFFF
+                // RawData = rawdata
+
+                } else {
+                    rawdata = 0;
+                }
+                console.log(rawdata);
+            }, genFail);
+        }, genFail);
     }
     
     function genFail(err){
