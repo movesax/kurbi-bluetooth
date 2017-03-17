@@ -3,11 +3,53 @@
     
     if(!scope.BT_TEST) scope.BT_TEST = {};
 
+    var AIN0 = 0;
+    var AIN1 = 1;
+    var AIN2 = 2;
+    var AIN3 = 3;
+    var AIN4 = 4;
+    var AIN5 = 5;
+    var COM = 8;
+    var DIODE = 15;
+    Unipolar = 1;
+    Bipolar = 0;
+    V2_5 = 1
+    V1_25 = 0
+    POC_Count = 0 
+    POC_PWM = 1
+    EOT_Timed = 0
+    EOT_Event = 1
+    
+
+    var _HwId = ""
+    var _CommOpen = false;
+    var _DIO_Config = 8;
+    var _DIO = 255;
+    var _Polarity = Unipolar;
+    var _Gain = 0;
+    var _VRef = V2_5;
+    var _ODAC = 0;
+    var _ADCON0 = 0x30;
+    var _ADCON1 = 0x41;
+    var _Decimation = 0x07F1;
+    var _ACLK = 0x10;
+    var _sock = null;
+    var _MSINT = 100;
+
+    var _EventOrTimed = EOT_Timed
+    var _PWMOrCnt = POC_PWM
+    
+    var _Counter = 0
+
+
     scope.BT_TEST.begin = function(){
         // scanForDevices();
         console.log(checksum('i'));
-        console.log(checksumOK('Abacon'));
+        console.log(checksumOK('Abacon snitzel'));
+        console.log(configAnalog(0.1,0,10));
+        //console.log(configAnalogAdvance());
     }
+
 
 
     function scanForDevices(){
@@ -31,7 +73,7 @@
             var ch = string[i];
             _cs = (_cs + ord(ch)) % 256;   
             }
-        var res = string + _cs.toString(16);
+        var res = string + ("00" + _cs.toString(16)).substr(-2).toUpperCase();
         return res;
     }
 
@@ -39,10 +81,20 @@
         var output = '';
         var chksum = '';
         if(string[0] == 'A') {
-            output = string.slice(1,string.length - 2);  
-            chksum = string.slice(string.length-2,string.length);
+            output = string.slice(1,string.length - 3);  
+            chksum = string.slice(string.length-3,string.length-1);
+            var _cs = 0;
+     
+            for(var i = 0; i < output.length; i++){
+              var ch = output[i];
+              _cs = (_cs + ord(ch)) % 256;
             }
-        return chksum;      
+            if(("00" + _cs.toString(16)).substr(-2).toUpperCase() == chksum)
+              return {success: true, value: output}
+
+            }
+          return {success:false, value: 'err'}
+         
     }
 
 
@@ -60,7 +112,57 @@
         
     }
 
+    function configAnalog(InputLimit, Polarity, SampleFreq){
+        if (_VRef == V2_5) reflimit = 2.5;
+        else reflimit = 1.25;
 
+        if (InputLimit > reflimit) InputLimit = reflimit;
+
+        Gain = Math.floor(Math.log(reflimit / InputLimit)/Math.log(2))
+        
+        _ADCON0 = _ADCON0 & 0xF8;
+        _ADCON0 = Math.floor(Gain | _ADCON0);
+        _Gain = Gain;
+
+        _ADCON1 = _ADCON1 & 0xBF;
+        _ADCON1 = Math.floor(Polarity << 6) | _ADCON1;
+        _Polarity = Polarity;
+
+        var temp = (170/SampleFreq) - 1;
+        if(temp < 0) temp = 1;
+
+
+        _ACLK = Math.floor(temp)
+
+        // # 345606.25 = 22118800 / 64
+        _Decimation = Math.floor(345606.25/((_ACLK + 1) * SampleFreq))
+
+        // # correct for Decimation bug
+
+        if(_Decimation > 2047){
+          _ACLK = _ACLK + 1;
+          _Decimation = Math.floor(345606.25 / ((_ACLK + 1) * SampleFreq));
+        }
+
+        
+        return configAnalogAdvance();
+        
+    }
+
+    function configAnalogAdvance(){
+        c = "03F" + ("00" + _ODAC.toString(16)).substr(-2).toUpperCase() + 
+            ("00" + _ADCON0.toString(16)).substr(-2).toUpperCase()+ ("00" + _ADCON1.toString(16)).substr(-2).toUpperCase()+
+            ("0000"+_Decimation.toString(16)).substr(-4).toUpperCase()+ ("00" + _ACLK.toString(16)).substr(-2).toUpperCase();
+        console.log( "03F" + ("00" + _ODAC.toString(16)).substr(-2).toUpperCase())
+        console.log(("00" + _ADCON0.toString(16)).substr(-2).toUpperCase())
+        console.log(("00" + _ADCON1.toString(16)).substr(-2).toUpperCase())
+        console.log(("0000"+_Decimation.toString(16)).substr(-4).toUpperCase())
+        console.log(("00" + _ACLK.toString(16)).substr(-2).toUpperCase())
+
+        // actSampFreq = 22118800/((self._ACLK + 1) * self._Decimation * 64)
+        // return (self._writecmd(c),actSampFreq)
+        return c;
+    }
     
     function genFail(err){
         cosnole.log('error');
