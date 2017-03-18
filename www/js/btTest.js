@@ -52,12 +52,22 @@
     bt.read = readAnalog;
 
     scope.BT_TEST.begin = function(){
-        // scanForDevices();
-        console.log(checksum('i'));
-        console.log(checksumOK('Abacon snitzel'));
-        console.log(configAnalog(0.1,0,10));
-        //console.log(configAnalogAdvance());
-        //initializeDevice();
+ 
+        initializeDevice(
+        function(){
+            //connected successfully
+            var count = 0;
+            var timer = setInterval(function(){
+                count++;
+                readAnalog(AIN0,AIN1, function(result){
+                    console.log(result);
+                });
+                if(count > 10) window.clearInterval(timer);
+            },1000)
+        },
+        function(){
+            //failed to connect
+        });
     }
 
 
@@ -104,15 +114,17 @@
     function checksumOK(string){
         var output = '';
         var chksum = '';
+
         if(string[0] == 'A') {
-            output = string.slice(1,string.length - 3);  
-            chksum = string.slice(string.length-3,string.length-1);
+            output = string.slice(1,string.length - 2);  
+            chksum = string.slice(string.length-2,string.length);
             var _cs = 0;
-     
+    
             for(var i = 0; i < output.length; i++){
               var ch = output[i];
               _cs = (_cs + ord(ch)) % 256;
             }
+
             if(("00" + _cs.toString(16)).substr(-2).toUpperCase() == chksum)
               return {success: true, value: output}
 
@@ -195,7 +207,7 @@
         return c;
     }
 
-    function readAnalog(pinA,pinB){
+    function readAnalog(pinA,pinB,finished){
         var ai = (pinA * 16 + pinB) % 256;
         var hexCode = ("00" + ai.toString(16)).substr(-2).toUpperCase()
         c = '>' + checksum('t' + hexCode);
@@ -205,20 +217,20 @@
                 
                 var data = checksumOK(buffer);
                 if(data.success){
-                     var rawdata = parseInt(buffer, 16);
-                    // if (_Polarity == Bipolar)
-                    //     if (rawdata > 0x7FFFFF)
-                    //         rawdata = rawdata - 0x1000000;
-                    // rawdata = rawdata * 2;
-                // g = 1 << self._Gain
-                // rawdata = rawdata / g
-                // volt = (rawdata * 1.25 * (1 + self._VRef))/0xFFFFFF
-                // RawData = rawdata
-
+                     var rawdata = parseInt(data.value, 16);
+                    if (_Polarity == Bipolar){
+                        if (rawdata > 0x7FFFFF)
+                            rawdata = rawdata - 0x1000000;
+                        rawdata = rawdata * 2;
+                        }
+                var g = 1 << self._Gain
+                rawdata = rawdata / g;
+                var volt = (rawdata * 1.25 * (1 + _VRef))/0xFFFFFF;
+                
                 } else {
                     rawdata = 0;
                 }
-                console.log(rawdata);
+                finished({rawdata:rawdata, volt:volt});
             }, genFail);
         }, genFail);
     }

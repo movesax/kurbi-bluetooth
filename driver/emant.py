@@ -79,7 +79,9 @@ class Emant300:
     def Open(self, Comm_Port, reset=True, dev='380'):
         self._CommPort = Comm_Port
         self._device = dev 
+        print 'about to detect devices'
         if (self._device=='380'):
+            print 'about to connect to bluetooth under 380'
             service_matches = bluetooth.find_service( uuid = uuid, address = Comm_Port )
             if len(service_matches) == 0:
                     self._CommOpen = False
@@ -99,6 +101,7 @@ class Emant300:
             self._CommOpen = self._serial.isOpen
 
         c = '>' + self._checksum('i')
+        print 'doing transaction ' + c
         r = self._TransactCommand(c)
         (st, id) = self._checksum_OK(r)
         self._HwId = id
@@ -195,21 +198,35 @@ class Emant300:
     def ReadAnalog(self, PIn, NIn):
 #        if PIn not in self.AIN: raise ValueError("Not a valid input: %r" % PositiveInput)
 #        if NIn not in self.AIN: raise ValueError("Not a valid input: %r" % PositiveInput)
-
+        print "begin"
         ai = (PIn * 16 + NIn) % 256
+        print ai
         c = '>' + self._checksum('t' + ("%02x" % ai).upper())
+        print c
         r = self._TransactCommand(c)
+        print r
         (resbool, result) = self._checksum_OK(r)
         if resbool:
+            print result
             rawdata = int(result, 16)
+            print rawdata
             if (self._Polarity == self.Bipolar):
+                print "Polarity equals Bipolar"
                 if rawdata > 0x7FFFFF:
+                    print "Rawdata > 0x7FFFFF"
                     rawdata = rawdata - 0x1000000
+                    print rawdata
                 rawdata = rawdata * 2
+                print rawdata
+            print self._Gain
             g = 1 << self._Gain
+            print g
             rawdata = rawdata / g
+            print rawdata
             volt = (rawdata * 1.25 * (1 + self._VRef))/0xFFFFFF
+            print volt
             RawData = rawdata
+            print RawData
         else:
             RawData = 0
         return(volt,RawData)
@@ -315,25 +332,31 @@ class Emant300:
     def _TransactCommand(self, sendstring):
         if (self._device=='380'):
             self._sock.send(sendstring)
+            print "data sent"
             return self._bt_receive_data()
         if (self._device=='300'):
             self._serial.write(sendstring)
             return self._serial_receive_data()
 
     def _serial_receive_data(self):
+        print "reading buffer"
         buffer = ""
         while 1:
             data = self._serial.read(1)
             buffer = buffer + data
+            print buffer
             if data == '\r':
                 return buffer
 
     def _bt_receive_data(self):
+        print "reading buffer"
         buffer = ""
         while 1:
              data = self._sock.recv(1)
              buffer = buffer + data
+             print buffer
              if data == '\r':
+                 print "i guess done reading the buffer"
                  return buffer
 
     def _DeadTimeComp(self, RawValue):
